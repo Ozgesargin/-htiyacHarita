@@ -1,113 +1,194 @@
-"""
-İHTİYAÇ HARİTA MENÜ YAPISI
-Veri saklama ve kullanma ile ilgili sorunlar yaşadım. O yüzden düzgün çalışmayabilir.
-SQL araştırıp daha optimize etmeye çalışacağım.
-"""
-kullanici={}
+import sqlite3 as sql
 
-# Menüyü ekrana yazdırır.
+vt = sql.connect('ihtiyacharita.db')
+im = vt.cursor()
+
+# Kullanıcı tablosu
+im.execute("CREATE TABLE IF NOT EXISTS kullanicilar (ad TEXT, sifre TEXT)")
+           
+# İhtiyaç tablosu
+im.execute("CREATE TABLE IF NOT EXISTS ihtiyaclar (konum TEXT, malzeme TEXT,adet INTEGER)")
+
+# Yardım noktaları 
+im.execute("CREATE TABLE IF NOT EXISTS yardim_noktalari (konum TEXT, iletişim_numarasi TEXT, acilis_saati TEXT, kapanis_saati TEXT, hizmet_icerigi TEXT)")
+
+
+# Admin kullanıcıları
+admin_kullanicilar = [{"kullanici_adi": "admin","sifre": "123456"}]
+    
+
+
 def menu():
     
-    menu_item = ["Kayıt Ol", "Giriş Yap", "Hesap Silme", "Şifremi Unuttum"]
-    for i in range(len(menu_item)):
-        print("{}.{}".format(i+1, menu_item[i]))
+    while(True): 
+
+        print("\nAna Menü\n")
+        print("1. Üye ol")
+        print("2. Giriş yap")
+        print("3. şifremi unuttum")
+        print("4. Çıkış")  
+
+        secim = input("İstediğiniz işlemi tuşayın")  
         
-        
-#Bireysel veya kurumsal profil oluşturup kaydeder.
-def kayit_ol():
-    while True:
-        kyt_type = ["1. Bireysel hesap", "2. Kurumsal Hesap"]
-        print("\n".join(kyt_type))
-        secim = input("İşlem seçiniz:\n")
-        if secim == "1":
-            sys_ad = input("Kullanıcı adı giriniz: ")
-            sys_parola = input("Parolanızı giriniz: ")
-            sys_konum = input("Konumunuzu giriniz: ")
-            sys_tel_no = input("Tel no giriniz: ")
-            # Yeni kullanıcıyı kullanici adına saklıyoruz
-            kullanici = {
-                "ad": sys_ad,
-                "parola": sys_parola,
-                "konum": sys_konum,
-                "tel no": sys_tel_no,
-                "hizmet": None,
-                "tip": "bireysel"
-            }
-            break
-        elif secim == "2":
-            sys_ad = input("Kurum adı giriniz: ")
-            sys_parola = input("Parolanızı giriniz: ")
-            sys_konum = input("Yardım noktası konumunu giriniz: ")
-            sys_tel_no = input("Tel no giriniz: ")
-            sys_hizmet = input("Verilecek hizmet türlerini giriniz: ")
-            # Yeni kullanıcıyı kurum adına saklıyoruz
-            kurum = {
-                "ad": sys_ad,
-                "parola": sys_parola,
-                "konum": sys_konum,
-                "tel no": sys_tel_no,
-                "hizmet": sys_hizmet,
-                "tip": "kurumsal"
-            }
+        if secim=="1":
+            uye_ol()
+        elif secim=="2":
+            giris_yap()
+        elif secim=="3":
+            sifre_unuttum()
+        elif secim=="4":
             break
         else:
-            print("Hatalı tuşlama yaptınız.")
-            continue
-            
-            
-# Uygulamaya giriş yapmayı sağlar.
-def giris(kullanici):
-    while True:
-        ad = input("Kullanıcı adı giriniz: ")
-        if ad not in kullanici:
-            print("Kullanıcı adınızı yanlış girdiniz.")
-            return False
-        parola = input("Parolanızı giriniz: ")
-        if kullanici[ad]["parola"] != parola:
-            print("Parolanızı yanlış girdiniz.")
-            return False
+            print("Hatalı tuşlama yaptınız")
+
+        
+def uye_ol(): 
+
+    kullanici_adi = input("Kullanıcı adı:")
+    sifre = input("Sifre:")
+    
+    im.execute("""INSERT INTO kullanicilar VALUES (?, ?)""",( kullanici_adi, sifre))
+    vt.commit()
+    
+    print("Üye kaydı tamamlandı.")
+    
+def giris_yap():
+    
+    ad = input("Kullanıcı adı:")
+    
+    if ad =="admin":
+        parola = input("Şifre:")
+        for admin in admin_kullanicilar:
+            if admin["kullanici_adi"] == ad and admin["sifre"] == parola:
+                print("Admin girişi yapıldı.")
+                admin_menu()
+                return
+    
+    else:
+        
+        parola = input("Şifre:")
+        im.execute("SELECT * FROM kullanicilar WHERE ad = ? AND sifre = ?", (ad, parola))
+        kullanici = im.fetchone()
+        
+        if kullanici:
+            print("Kullanıcı girişi yapıldı")
+            kullanici_menu()
         else:
-            print("Sisteme giriş yaptınız.")
-            return True
+            print("Kullanıcı adı veya şifre hatalı!")
 
 
-#sisteme kayıtlı hesap bilgilerini siler.
-def hesap_sil(kullanici, ad, parola):
-    for i in range(len(kullanici)):
-        if kullanici[i]["ad"] == ad and kullanici[i]["parola"] == parola:
-            del kullanici[i]
-            print("Hesabınız silinmiştir.")
-            return kullanici
-    print("Kullanıcı adınızı veya parolanızı yanlış girdiniz.")
-    return kullanici
+def sifre_unuttum():
+    ad = input("Kullanıcı adı:")
+    
+    im.execute("SELECT * FROM kullanicilar WHERE ad = ?", (ad,))
+    kullanici = im.fetchone()
+    
+    if kullanici:
+        yeni_sifre = input("Yeni şifre:")
+        im.execute("UPDATE kullanicilar SET sifre = ? WHERE ad = ?", (yeni_sifre, ad))
+        vt.commit()
+        print("Şifre sıfırlama işlemi başarılı! Yeni şifreniz: {} ".format(yeni_sifre))
+    else:
+        print("Kullanıcı bulunamadı!")
+
+def admin_menu():
+    
+    while (True):
+        
+        print("\nAdmin Menüsü\n")
+        print("1. İhtiyac Ekle")
+        print("2. İhtiyaçları Listele")
+        print("3. Yardım Noktaları Ekle")
+        print("4. Yardım Noktaları Listele")
+        print("0. Çıkış")     
+        
+        secim = input("İstediğiniz işlemi tuşayın")  
+        
+        if secim=="1":
+            ihtiyac_ekle()
+        elif secim=="2":
+            ihtiyac_listele()
+        elif secim=="3":
+            yardım_nok_ekle()
+        elif secim=="4":
+            yardım_nok_listele()
+        elif secim=="0":
+            break
+        else:
+            print("Hatalı tuşlama yaptınız")        
+
+def ihtiyac_listele():
+    im.execute("SELECT * FROM ihtiyaclar")
+    ihtiyaclar = im.fetchall()
+    if ihtiyaclar:
+        print("İhtiyaçlar:")
+        for konum, malzeme, adet in ihtiyaclar:
+            print(f"Konum: {konum}")
+            print(f"Malzeme: {malzeme}")
+            print(f"Adet: {adet}")
+            print()
+    else:
+        print("Henüz ihtiyaç eklenmedi.")
+
+def yardım_nok_ekle():
+    konum = input("Yardım noktasının konumunu girin: ")
+    iletişim_numarası = input("Yardım noktasının iletişim numarasını girin: ")
+    acilis_saati = input("Yardım noktasının açılış saatini girin: ")
+    kapanis_saati = input("Yardım noktasının kapanış saatini girin: ")
+    hizmet_icerigi = input("Yardım noktasının hizmet içeriğini girin: ")
+
+    im.execute("INSERT INTO yardim_noktalari VALUES (?, ?, ?, ?, ?)",
+               (konum, iletişim_numarası, acilis_saati, kapanis_saati, hizmet_icerigi))
+    vt.commit()
+    print("Yardım noktası başarıyla eklendi.")
+    
+def kullanici_menu():
+    
+    while (True):
+        
+        print("\nMenü\n")
+        print("1. İhtiyac Ekle")
+        print("2. Yardım Noktaları Listele")
+        print("0. Çıkış")     
+        
+        secim = input("İstediğiniz işlemi tuşayın")  
+        
+        if secim=="1":
+            ihtiyac_ekle()
+        elif secim=="2":
+            yardım_nok_listele()
+        elif secim=="0":
+            break
+        else:
+            print("Hatalı tuşlama yaptınız")
+        
+        
+
+def ihtiyac_ekle():
+    konum = input("İhtiyacın konumunu girin: ")
+    malzeme = input("İhtiyaç malzemesini girin: ")
+    adet = int(input("İhtiyaç adedini girin: "))
+
+    im.execute("INSERT INTO ihtiyaclar VALUES (?, ?, ?)",
+               (konum, malzeme, adet))
+    vt.commit()
+    print("İhtiyaç başarıyla eklendi.")
+
+def yardım_nok_listele():
+    im.execute("SELECT * FROM yardim_noktalari")
+    yardim_noktalari = im.fetchall()
+    if yardim_noktalari:
+        print("Yardım Noktaları:")
+        for konum, iletişim_numarası, acilis_saati, kapanis_saati, hizmet_icerigi in yardim_noktalari:
+            print(f"Konum: {konum}")
+            print(f"İletişim Numarası: {iletişim_numarası}")
+            print(f"Açılış Saati: {acilis_saati}")
+            print(f"Kapanış Saati: {kapanis_saati}")
+            print(f"Hizmet İçeriği: {hizmet_icerigi}")
+            print()
+    else:
+        print("Henüz yardım noktası eklenmedi.")
 
 
-# Sistemdeki parolayı değiştirir.
-def yeni_parola(kullanici):
-    ad = input("Kullanıcı adı giriniz: ")
-    for i in range(len(kullanici)):
-        if kullanici[i]["ad"] == ad:
-            sys_parola = input("Yeni parola giriniz: ")
-            kullanici[i]["parola"]
-
-
-# Ana fonksiyonum
-menu() 
-while True:
-    secim=int(input("İşlem seçiniz"))  
-    if (secim==1):
-        kayit_ol()
-    elif (secim==2):
-        giris()
-    elif (secim==3):
-        ad = input("Hesabınızı silmek için kullanıcı adı giriniz:")
-        parola = input("Hesabınızı silmek için parolanızı giriniz:")
-        hesap_sil(kullanici, ad, parola)
-    elif(secim==4):
-        yeni_parola()
-    else: 
-        print("lütfen geçerli bir işlem seçiniz")
-        continue
-  
-
+menu()       
 
